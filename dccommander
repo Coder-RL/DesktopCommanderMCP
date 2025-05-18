@@ -1,0 +1,151 @@
+#!/bin/bash
+
+# Desktop Commander MCP Control Script
+SCRIPT_DIR="/Users/robertlee/GitHubProjects/DesktopCommanderMCP"
+SERVER_SCRIPT="$SCRIPT_DIR/dist/index.js"
+
+# Function to check if server is in Claude config
+check_claude_config() {
+    CLAUDE_CONFIG="$HOME/Library/Application Support/Claude/claude_desktop_config.json"
+    if [ -f "$CLAUDE_CONFIG" ]; then
+        if grep -q "DesktopCommanderMCP" "$CLAUDE_CONFIG"; then
+            return 0
+        fi
+    fi
+    return 1
+}
+
+# Function to test the server
+test_server() {
+    echo "Testing Desktop Commander MCP Server..."
+    echo "This will start the server in interactive mode. Press Ctrl+C to stop."
+    echo ""
+    cd "$SCRIPT_DIR"
+    node "$SERVER_SCRIPT"
+}
+
+# Function to build the server
+build_server() {
+    echo "Building Desktop Commander MCP Server..."
+    cd "$SCRIPT_DIR"
+    npm run build
+}
+
+# Function to show logs
+show_logs() {
+    LOG_FILE="$SCRIPT_DIR/logs/standalone-commander.log"
+    if [ -f "$LOG_FILE" ]; then
+        echo "Showing logs from: $LOG_FILE"
+        tail -f "$LOG_FILE"
+    else
+        echo "No standalone log file found."
+        echo "MCP servers normally run through Claude Desktop."
+        echo "Check Claude Desktop logs for server output."
+    fi
+}
+
+# Function to show status
+show_status() {
+    echo "Desktop Commander MCP Server Status"
+    echo "==================================="
+    echo "Project Directory: $SCRIPT_DIR"
+    echo "Server Script: $SERVER_SCRIPT"
+    echo ""
+    
+    if [ -f "$SERVER_SCRIPT" ]; then
+        echo "✓ Server script exists"
+    else
+        echo "✗ Server script not found"
+        echo "  Run 'dccommander build' to build the server"
+    fi
+    
+    echo ""
+    
+    if check_claude_config; then
+        echo "✓ Configured in Claude Desktop"
+        echo "  The server will run automatically when Claude Desktop starts"
+    else
+        echo "✗ Not configured in Claude Desktop"
+        echo "  Run 'dccommander install' to configure"
+    fi
+    
+    echo ""
+    echo "Available commands:"
+    echo "  dccommander build   - Build the server"
+    echo "  dccommander test    - Test the server interactively"
+    echo "  dccommander install - Configure for Claude Desktop"
+    echo "  dccommander status  - Show this status"
+}
+
+# Function to install/configure for Claude Desktop
+install_server() {
+    echo "Configuring Desktop Commander for Claude Desktop..."
+    
+    CLAUDE_CONFIG="$HOME/Library/Application Support/Claude/claude_desktop_config.json"
+    
+    # Create backup
+    if [ -f "$CLAUDE_CONFIG" ]; then
+        cp "$CLAUDE_CONFIG" "$CLAUDE_CONFIG.bak"
+        echo "Backed up existing config to: $CLAUDE_CONFIG.bak"
+    fi
+    
+    # Create new config with local server
+    cat > "$CLAUDE_CONFIG" << EOF
+{
+  "serverConfig": {
+    "command": "/bin/sh",
+    "args": [
+      "-c"
+    ]
+  },
+  "mcpServers": {
+    "desktop-commander": {
+      "command": "node",
+      "args": [
+        "$SERVER_SCRIPT"
+      ]
+    }
+  }
+}
+EOF
+    
+    echo "Claude Desktop configuration updated!"
+    echo "Please restart Claude Desktop to use the integrated Desktop Commander."
+}
+
+# Main command handling
+case "$1" in
+    build)
+        build_server
+        ;;
+    test)
+        test_server
+        ;;
+    install)
+        install_server
+        ;;
+    status)
+        show_status
+        ;;
+    logs)
+        show_logs
+        ;;
+    *)
+        echo "Desktop Commander MCP Control"
+        echo "============================"
+        echo ""
+        echo "Usage: $0 {build|test|install|status|logs}"
+        echo ""
+        echo "Commands:"
+        echo "  build   - Build the server from source"
+        echo "  test    - Test the server interactively"
+        echo "  install - Configure server for Claude Desktop"
+        echo "  status  - Show server status"
+        echo "  logs    - Show server logs"
+        echo ""
+        echo "Note: MCP servers run through Claude Desktop, not as standalone services."
+        echo "Use 'install' to configure the server for automatic startup with Claude."
+        echo ""
+        exit 1
+        ;;
+esac

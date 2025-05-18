@@ -1,0 +1,169 @@
+#!/bin/bash
+
+# Desktop Commander MCP Router Control Script
+DESKTOP_COMMANDER_DIR="/Users/robertlee/GitHubProjects/DesktopCommanderMCP"
+MCP_ECOSYSTEM_DIR="/Users/robertlee/GitHubProjects/claude-desktop-mcp-ecosystem"
+ROUTER_URL="http://localhost:3099"
+
+# Function to register Desktop Commander with MCP Router
+register_with_router() {
+    echo "Registering Desktop Commander with MCP Router..."
+    
+    # Create registration payload
+    REGISTRATION_DATA='{
+        "id": "desktop-commander",
+        "name": "Desktop Commander MCP",
+        "transport": {
+            "type": "stdio",
+            "baseUrl": "file:///Users/robertlee/GitHubProjects/DesktopCommanderMCP/dist/index.js"
+        },
+        "capabilities": [
+            "file_operations",
+            "terminal_commands",
+            "process_management",
+            "code_editing",
+            "task_management",
+            "sequential_thinking"
+        ],
+        "description": "Integrated Desktop Commander with Task Manager and Sequential Thinking",
+        "status": "active"
+    }'
+    
+    # Send registration request
+    RESPONSE=$(curl -s -X POST \
+        -H "Content-Type: application/json" \
+        -d "$REGISTRATION_DATA" \
+        "$ROUTER_URL/register")
+    
+    echo "Registration response: $RESPONSE"
+}
+
+# Function to check if registered with router
+check_registration() {
+    echo "Checking registration status..."
+    
+    RESPONSE=$(curl -s "$ROUTER_URL/servers/desktop-commander")
+    
+    if echo "$RESPONSE" | grep -q "desktop-commander"; then
+        echo "✓ Desktop Commander is registered with MCP Router"
+        return 0
+    else
+        echo "✗ Desktop Commander is not registered with MCP Router"
+        return 1
+    fi
+}
+
+# Function to start the router ecosystem if needed
+start_router_ecosystem() {
+    echo "Checking MCP Router status..."
+    
+    # Check if router is running
+    if ! curl -s "$ROUTER_URL/health" | grep -q "ok"; then
+        echo "MCP Router is not running. Starting it..."
+        cd "$MCP_ECOSYSTEM_DIR"
+        ./start_router.sh &
+        sleep 5
+    else
+        echo "MCP Router is already running"
+    fi
+}
+
+# Function to show status
+show_status() {
+    echo "Desktop Commander MCP Router Integration Status"
+    echo "=============================================="
+    echo "Desktop Commander: $DESKTOP_COMMANDER_DIR"
+    echo "MCP Ecosystem: $MCP_ECOSYSTEM_DIR"
+    echo ""
+    
+    # Check if server files exist
+    if [ -f "$DESKTOP_COMMANDER_DIR/dist/index.js" ]; then
+        echo "✓ Desktop Commander: BUILT"
+    else
+        echo "✗ Desktop Commander: NOT BUILT"
+        echo "  Run 'dc-router-control build' to build"
+    fi
+    
+    echo ""
+    
+    # Check router status
+    if curl -s "$ROUTER_URL/health" | grep -q "ok"; then
+        echo "✓ MCP Router: RUNNING"
+        
+        # Check if registered
+        if check_registration > /dev/null 2>&1; then
+            echo "✓ Registration: ACTIVE"
+        else
+            echo "✗ Registration: NOT REGISTERED"
+            echo "  Run 'dc-router-control register' to register"
+        fi
+    else
+        echo "✗ MCP Router: NOT RUNNING"
+        echo "  Run 'dc-router-control start-router' to start"
+    fi
+    
+    echo ""
+    echo "Available commands:"
+    echo "  dc-router-control build        - Build Desktop Commander"
+    echo "  dc-router-control start-router - Start MCP Router ecosystem"
+    echo "  dc-router-control register     - Register with MCP Router"
+    echo "  dc-router-control status       - Show this status"
+    echo "  dc-router-control list         - List all registered servers"
+}
+
+# Function to build Desktop Commander
+build_server() {
+    echo "Building Desktop Commander..."
+    cd "$DESKTOP_COMMANDER_DIR"
+    npm run build
+}
+
+# Function to list all registered servers
+list_servers() {
+    echo "Registered MCP Servers:"
+    echo "======================"
+    
+    curl -s "$ROUTER_URL/servers" | python3 -m json.tool
+}
+
+# Main command handling
+case "$1" in
+    build)
+        build_server
+        ;;
+    start-router)
+        start_router_ecosystem
+        ;;
+    register)
+        start_router_ecosystem
+        register_with_router
+        ;;
+    status)
+        show_status
+        ;;
+    list)
+        list_servers
+        ;;
+    *)
+        echo "Desktop Commander MCP Router Control"
+        echo "==================================="
+        echo ""
+        echo "This tool manages Desktop Commander within the MCP Router ecosystem"
+        echo ""
+        echo "Usage: dc-router-control {build|start-router|register|status|list}"
+        echo ""
+        echo "Commands:"
+        echo "  build        - Build Desktop Commander"
+        echo "  start-router - Start the MCP Router ecosystem"
+        echo "  register     - Register Desktop Commander with MCP Router"
+        echo "  status       - Show current status"
+        echo "  list         - List all registered MCP servers"
+        echo ""
+        echo "Typical workflow:"
+        echo "  1. dc-router-control build        # Build Desktop Commander"
+        echo "  2. dc-router-control start-router # Start the router"
+        echo "  3. dc-router-control register     # Register with router"
+        echo ""
+        exit 1
+        ;;
+esac

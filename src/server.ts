@@ -32,6 +32,23 @@ import {
     SetConfigValueArgsSchema,
     ListProcessesArgsSchema,
     EditBlockArgsSchema,
+    // Task Manager schemas
+    RequestPlanningArgsSchema,
+    GetNextTaskArgsSchema,
+    MarkTaskDoneArgsSchema,
+    ApproveTaskCompletionArgsSchema,
+    ApproveRequestCompletionArgsSchema,
+    OpenTaskDetailsArgsSchema,
+    ListRequestsArgsSchema,
+    AddTasksToRequestArgsSchema,
+    UpdateTaskArgsSchema,
+    DeleteTaskArgsSchema,
+    // Sequential Thinking schemas
+    ProcessThoughtArgsSchema,
+    GenerateSummaryArgsSchema,
+    ClearHistoryArgsSchema,
+    ExportSessionArgsSchema,
+    ImportSessionArgsSchema,
 } from './tools/schemas.js';
 import {getConfig, setConfigValue} from './tools/config.js';
 
@@ -178,6 +195,100 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
                         ${PATH_GUIDANCE} ${CMD_PREFIX_DESCRIPTION}`,
                     inputSchema: zodToJsonSchema(EditBlockArgsSchema),
                 },
+
+                // Task Manager tools
+                {
+                    name: "request_planning",
+                    description:
+                        `Register a new user request and plan its associated tasks. You must provide 'originalRequest' and 'tasks', and optionally 'splitDetails'. This initiates a new workflow for handling a user's request. After adding tasks, use 'get_next_task' to retrieve the first task. ${CMD_PREFIX_DESCRIPTION}`,
+                    inputSchema: zodToJsonSchema(RequestPlanningArgsSchema),
+                },
+                {
+                    name: "get_next_task",
+                    description:
+                        `Given a 'requestId', return the next pending task. If all tasks are completed, it will indicate that no more tasks are left and that you must wait for the request completion approval. A progress table showing the current status of all tasks will be displayed with each response. ${CMD_PREFIX_DESCRIPTION}`,
+                    inputSchema: zodToJsonSchema(GetNextTaskArgsSchema),
+                },
+                {
+                    name: "mark_task_done",
+                    description:
+                        `Mark a given task as done after you've completed it. Provide 'requestId' and 'taskId', and optionally 'completedDetails'. After marking a task as done, DO NOT proceed to 'get_next_task' again until the user has explicitly approved this completed task using 'approve_task_completion'. ${CMD_PREFIX_DESCRIPTION}`,
+                    inputSchema: zodToJsonSchema(MarkTaskDoneArgsSchema),
+                },
+                {
+                    name: "approve_task_completion",
+                    description:
+                        `Once the assistant has marked a task as done using 'mark_task_done', the user must call this tool to approve that the task is genuinely completed. Only after this approval can you proceed to 'get_next_task' to move on. ${CMD_PREFIX_DESCRIPTION}`,
+                    inputSchema: zodToJsonSchema(ApproveTaskCompletionArgsSchema),
+                },
+                {
+                    name: "approve_request_completion",
+                    description:
+                        `After all tasks are done and approved, this tool finalizes the entire request. The user must call this to confirm that the request is fully completed. ${CMD_PREFIX_DESCRIPTION}`,
+                    inputSchema: zodToJsonSchema(ApproveRequestCompletionArgsSchema),
+                },
+                {
+                    name: "open_task_details",
+                    description:
+                        `Get details of a specific task by 'taskId'. This is for inspecting task information at any point. ${CMD_PREFIX_DESCRIPTION}`,
+                    inputSchema: zodToJsonSchema(OpenTaskDetailsArgsSchema),
+                },
+                {
+                    name: "list_requests",
+                    description:
+                        `List all requests with their basic information and summary of tasks. This provides a quick overview of all requests in the system. ${CMD_PREFIX_DESCRIPTION}`,
+                    inputSchema: zodToJsonSchema(ListRequestsArgsSchema),
+                },
+                {
+                    name: "add_tasks_to_request",
+                    description:
+                        `Add new tasks to an existing request. This allows extending a request with additional tasks. ${CMD_PREFIX_DESCRIPTION}`,
+                    inputSchema: zodToJsonSchema(AddTasksToRequestArgsSchema),
+                },
+                {
+                    name: "update_task",
+                    description:
+                        `Update an existing task's title and/or description. Only uncompleted tasks can be updated. ${CMD_PREFIX_DESCRIPTION}`,
+                    inputSchema: zodToJsonSchema(UpdateTaskArgsSchema),
+                },
+                {
+                    name: "delete_task",
+                    description:
+                        `Delete a specific task from a request. Only uncompleted tasks can be deleted. ${CMD_PREFIX_DESCRIPTION}`,
+                    inputSchema: zodToJsonSchema(DeleteTaskArgsSchema),
+                },
+
+                // Sequential Thinking tools
+                {
+                    name: "process_thought",
+                    description:
+                        `Add a sequential thought with its metadata. Use this for step-by-step problem solving and analysis. Stages include: Problem Definition, Research, Analysis, Synthesis, Conclusion. ${CMD_PREFIX_DESCRIPTION}`,
+                    inputSchema: zodToJsonSchema(ProcessThoughtArgsSchema),
+                },
+                {
+                    name: "generate_summary",
+                    description:
+                        `Generate a summary of the entire thinking process. Shows progression through stages, key themes, and overall coherence. ${CMD_PREFIX_DESCRIPTION}`,
+                    inputSchema: zodToJsonSchema(GenerateSummaryArgsSchema),
+                },
+                {
+                    name: "clear_history",
+                    description:
+                        `Clear the thought history. Use this to start a fresh thinking session. ${CMD_PREFIX_DESCRIPTION}`,
+                    inputSchema: zodToJsonSchema(ClearHistoryArgsSchema),
+                },
+                {
+                    name: "export_session",
+                    description:
+                        `Export the current thinking session to a file. Useful for saving your analysis. ${CMD_PREFIX_DESCRIPTION}`,
+                    inputSchema: zodToJsonSchema(ExportSessionArgsSchema),
+                },
+                {
+                    name: "import_session",
+                    description:
+                        `Import a thinking session from a file. Useful for continuing previous analysis. ${CMD_PREFIX_DESCRIPTION}`,
+                    inputSchema: zodToJsonSchema(ImportSessionArgsSchema),
+                },
                 
                 // Terminal tools
                 {
@@ -224,6 +335,8 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
 
 import * as handlers from './handlers/index.js';
 import {ServerResult} from './types.js';
+import {TaskManagerHandlers} from './handlers/task-manager-handlers.js';
+import {SequentialThinkingHandlers} from './handlers/sequential-thinking-handlers.js';
 
 server.setRequestHandler(CallToolRequestSchema, async (request: CallToolRequest): Promise<ServerResult> => {
     try {
@@ -306,6 +419,53 @@ server.setRequestHandler(CallToolRequestSchema, async (request: CallToolRequest)
 
             case "edit_block":
                 return await handlers.handleEditBlock(args);
+
+            // Task Manager tools
+            case "request_planning":
+                return await TaskManagerHandlers.handleRequestPlanning(args);
+
+            case "get_next_task":
+                return await TaskManagerHandlers.handleGetNextTask(args);
+
+            case "mark_task_done":
+                return await TaskManagerHandlers.handleMarkTaskDone(args);
+
+            case "approve_task_completion":
+                return await TaskManagerHandlers.handleApproveTaskCompletion(args);
+
+            case "approve_request_completion":
+                return await TaskManagerHandlers.handleApproveRequestCompletion(args);
+
+            case "open_task_details":
+                return await TaskManagerHandlers.handleOpenTaskDetails(args);
+
+            case "list_requests":
+                return await TaskManagerHandlers.handleListRequests();
+
+            case "add_tasks_to_request":
+                return await TaskManagerHandlers.handleAddTasksToRequest(args);
+
+            case "update_task":
+                return await TaskManagerHandlers.handleUpdateTask(args);
+
+            case "delete_task":
+                return await TaskManagerHandlers.handleDeleteTask(args);
+
+            // Sequential Thinking tools
+            case "process_thought":
+                return await SequentialThinkingHandlers.handleProcessThought(args);
+
+            case "generate_summary":
+                return await SequentialThinkingHandlers.handleGenerateSummary();
+
+            case "clear_history":
+                return await SequentialThinkingHandlers.handleClearHistory();
+
+            case "export_session":
+                return await SequentialThinkingHandlers.handleExportSession(args);
+
+            case "import_session":
+                return await SequentialThinkingHandlers.handleImportSession(args);
 
             default:
                 capture('server_unknown_tool', {name});

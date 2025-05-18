@@ -91,3 +91,82 @@ export const EditBlockArgsSchema = z.object({
   new_string: z.string(),
   expected_replacements: z.number().optional().default(1),
 });
+
+// Task Manager schemas
+export const RequestPlanningArgsSchema = z.object({
+  originalRequest: z.string(),
+  splitDetails: z.string().optional(),
+  tasks: z.array(z.object({
+    title: z.string(),
+    description: z.string(),
+  })),
+});
+
+export const GetNextTaskArgsSchema = z.object({
+  requestId: z.string(),
+});
+
+export const MarkTaskDoneArgsSchema = z.object({
+  requestId: z.string(),
+  taskId: z.string(),
+  completedDetails: z.string().optional(),
+});
+
+export const ApproveTaskCompletionArgsSchema = z.object({
+  requestId: z.string(),
+  taskId: z.string(),
+});
+
+export const ApproveRequestCompletionArgsSchema = z.object({
+  requestId: z.string(),
+});
+
+export const OpenTaskDetailsArgsSchema = z.object({
+  taskId: z.string(),
+});
+
+export const ListRequestsArgsSchema = z.object({});
+
+export const AddTasksToRequestArgsSchema = z.object({
+  requestId: z.string(),
+  tasks: z.array(z.object({
+    title: z.string(),
+    description: z.string(),
+  })),
+});
+
+export const UpdateTaskArgsSchema = z.object({
+  requestId: z.string(),
+  taskId: z.string(),
+  title: z.string().optional(),
+  description: z.string().optional(),
+});
+
+export const DeleteTaskArgsSchema = z.object({
+  requestId: z.string(),
+  taskId: z.string(),
+});
+
+// Sequential Thinking schemas
+export const ProcessThoughtArgsSchema = z.object({
+  thought: z.string(),
+  thought_number: z.number(),
+  total_thoughts: z.number(),
+  next_thought_needed: z.boolean(),
+  stage: z.string(),
+  tags: z.array(z.string()).optional(),
+  axioms_used: z.array(z.string()).optional(),
+  assumptions_challenged: z.array(z.string()).optional(),
+});
+
+export const GenerateSummaryArgsSchema = z.object({});
+
+export const ClearHistoryArgsSchema = z.object({});
+
+export const ExportSessionArgsSchema = z.object({
+  file_path: z.string(),
+});
+
+export const ImportSessionArgsSchema = z.object({
+  file_path: z.string(),
+});

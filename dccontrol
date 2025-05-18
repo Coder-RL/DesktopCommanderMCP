@@ -1,0 +1,240 @@
+#!/bin/bash
+
+# Desktop Commander MCP Control Script with Start/Stop
+SCRIPT_DIR="/Users/robertlee/GitHubProjects/DesktopCommanderMCP"
+SERVER_SCRIPT="$SCRIPT_DIR/dist/index.js"
+CLAUDE_CONFIG="$HOME/Library/Application Support/Claude/claude_desktop_config.json"
+BACKUP_DIR="$HOME/Library/Application Support/Claude/backups"
+
+# Create backup directory if it doesn't exist
+mkdir -p "$BACKUP_DIR"
+
+# Function to backup config
+backup_config() {
+    if [ -f "$CLAUDE_CONFIG" ]; then
+        BACKUP_FILE="$BACKUP_DIR/claude_desktop_config_$(date +%Y%m%d_%H%M%S).json"
+        cp "$CLAUDE_CONFIG" "$BACKUP_FILE"
+        echo "Config backed up to: $BACKUP_FILE"
+    fi
+}
+
+# Function to start (enable) the server
+start_server() {
+    echo "Enabling Desktop Commander MCP Server in Claude Desktop..."
+    
+    backup_config
+    
+    # Check if config exists
+    if [ ! -f "$CLAUDE_CONFIG" ]; then
+        echo "Creating new Claude Desktop configuration..."
+        echo '{
+  "mcpServers": {}
+}' > "$CLAUDE_CONFIG"
+    fi
+    
+    # Use Python to safely modify JSON
+    python3 -c "
+import json
+import sys
+
+config_file = '$CLAUDE_CONFIG'
+
+try:
+    with open(config_file, 'r') as f:
+        config = json.load(f)
+except:
+    config = {'mcpServers': {}}
+
+# Ensure mcpServers exists
+if 'mcpServers' not in config:
+    config['mcpServers'] = {}
+
+# Add or update desktop-commander
+config['mcpServers']['desktop-commander'] = {
+    'command': 'node',
+    'args': ['$SERVER_SCRIPT']
+}
+
+with open(config_file, 'w') as f:
+    json.dump(config, f, indent=2)
+
+print('Desktop Commander MCP Server enabled in Claude Desktop')
+"
+    
+    echo "Please restart Claude Desktop to use Desktop Commander"
+    echo "Status: ENABLED"
+}
+
+# Function to stop (disable) the server
+stop_server() {
+    echo "Disabling Desktop Commander MCP Server in Claude Desktop..."
+    
+    backup_config
+    
+    if [ ! -f "$CLAUDE_CONFIG" ]; then
+        echo "No Claude Desktop configuration found"
+        return
+    fi
+    
+    # Use Python to safely modify JSON
+    python3 -c "
+import json
+
+config_file = '$CLAUDE_CONFIG'
+
+try:
+    with open(config_file, 'r') as f:
+        config = json.load(f)
+    
+    if 'mcpServers' in config and 'desktop-commander' in config['mcpServers']:
+        del config['mcpServers']['desktop-commander']
+        
+        with open(config_file, 'w') as f:
+            json.dump(config, f, indent=2)
+        
+        print('Desktop Commander MCP Server disabled in Claude Desktop')
+    else:
+        print('Desktop Commander was not enabled')
+except Exception as e:
+    print(f'Error: {e}')
+"
+    
+    echo "Please restart Claude Desktop to apply changes"
+    echo "Status: DISABLED"
+}
+
+# Function to show status
+show_status() {
+    echo "Desktop Commander MCP Control Status"
+    echo "===================================="
+    echo "Project: $SCRIPT_DIR"
+    echo ""
+    
+    # Check if server files exist
+    if [ -f "$SERVER_SCRIPT" ]; then
+        echo "✓ Server files: BUILT"
+    else
+        echo "✗ Server files: NOT BUILT"
+        echo "  Run 'dccontrol build' to build"
+    fi
+    
+    echo ""
+    
+    # Check Claude Desktop configuration
+    if [ -f "$CLAUDE_CONFIG" ]; then
+        if grep -q "desktop-commander" "$CLAUDE_CONFIG" 2>/dev/null; then
+            echo "✓ Claude Desktop: ENABLED"
+            echo "  Desktop Commander will run when Claude starts"
+        else
+            echo "✗ Claude Desktop: DISABLED"
+            echo "  Run 'dccontrol start' to enable"
+        fi
+    else
+        echo "✗ Claude Desktop: NOT CONFIGURED"
+        echo "  Run 'dccontrol start' to enable"
+    fi
+    
+    echo ""
+    echo "Available commands:"
+    echo "  dccontrol start  - Enable in Claude Desktop"
+    echo "  dccontrol stop   - Disable in Claude Desktop"
+    echo "  dccontrol status - Show this status"
+    echo "  dccontrol build  - Build server files"
+    echo "  dccontrol test   - Test server locally"
+    echo "  dccontrol list   - List all MCP servers"
+}
+
+# Function to build the server
+build_server() {
+    echo "Building Desktop Commander MCP Server..."
+    cd "$SCRIPT_DIR"
+    npm run build
+}
+
+# Function to test the server
+test_server() {
+    echo "Testing Desktop Commander MCP Server..."
+    echo "Press Ctrl+C to stop"
+    echo ""
+    cd "$SCRIPT_DIR"
+    node "$SERVER_SCRIPT"
+}
+
+# Function to list all MCP servers
+list_servers() {
+    echo "MCP Servers in Claude Desktop Configuration:"
+    echo "==========================================="
+    
+    if [ ! -f "$CLAUDE_CONFIG" ]; then
+        echo "No Claude Desktop configuration found"
+        return
+    fi
+    
+    python3 -c "
+import json
+
+try:
+    with open('$CLAUDE_CONFIG', 'r') as f:
+        config = json.load(f)
+    
+    if 'mcpServers' in config:
+        servers = config['mcpServers']
+        if not servers:
+            print('No MCP servers configured')
+        else:
+            for name, settings in servers.items():
+                status = '✓ ENABLED' if name == 'desktop-commander' else '  ENABLED'
+                print(f'{status} {name}')
+                print(f'    Command: {settings.get(\"command\", \"N/A\")}')
+                if 'args' in settings:
+                    print(f'    Args: {\" \".join(settings[\"args\"])}')
+                print()
+    else:
+        print('No MCP servers configured')
+except Exception as e:
+    print(f'Error reading config: {e}')
+"
+}
+
+# Main command handling
+case "$1" in
+    start)
+        start_server
+        ;;
+    stop)
+        stop_server
+        ;;
+    status)
+        show_status
+        ;;
+    build)
+        build_server
+        ;;
+    test)
+        test_server
+        ;;
+    list)
+        list_servers
+        ;;
+    *)
+        echo "Desktop Commander MCP Control"
+        echo "============================"
+        echo ""
+        echo "Usage: dccontrol {start|stop|status|build|test|list}"
+        echo ""
+        echo "Commands:"
+        echo "  start  - Enable Desktop Commander in Claude Desktop"
+        echo "  stop   - Disable Desktop Commander in Claude Desktop"
+        echo "  status - Show current status"
+        echo "  build  - Build server from source"
+        echo "  test   - Test server locally"
+        echo "  list   - List all configured MCP servers"
+        echo ""
+        echo "Examples:"
+        echo "  dccontrol start   # Enable Desktop Commander"
+        echo "  dccontrol stop    # Disable Desktop Commander"
+        echo "  dccontrol list    # See all MCP servers"
+        echo ""
+        exit 1
+        ;;
+esac

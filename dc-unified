@@ -1,0 +1,286 @@
+#!/bin/bash
+
+# Desktop Commander Unified Control Script
+DESKTOP_COMMANDER_DIR="/Users/robertlee/GitHubProjects/DesktopCommanderMCP"
+MCP_ECOSYSTEM_DIR="/Users/robertlee/GitHubProjects/claude-desktop-mcp-ecosystem"
+ROUTER_URL="http://localhost:3099"
+
+# Colors for output
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+RED='\033[0;31m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# ASCII art header
+show_header() {
+    echo -e "${BLUE}
+█▀▄ █▀▀ █▀ █▄▀ ▀█▀ █▀█ █▀█   █▀▀ █▀█ █▀▄▀█ █▀▄▀█ ▄▀█ █▄░█ █▀▄ █▀▀ █▀█
+█▄▀ ██▄ ▄█ █░█ ░█░ █▄█ █▀▀ █ █▄▄ █▄█ █░▀░█ █░▀░█ █▀█ █░▀█ █▄▀ ██▄ █▀▄
+${NC}"
+}
+
+# Function to start everything
+start_all() {
+    show_header
+    echo -e "${BLUE}==================================================${NC}"
+    echo -e "${BLUE}       Starting MCP Ecosystem & Desktop Commander ${NC}"
+    echo -e "${BLUE}==================================================${NC}"
+
+    # FIRST: Kill all existing processes as a precaution
+    echo -e "${YELLOW}Killing any existing processes...${NC}"
+    pkill -f "node.*mcp-" 2>/dev/null
+    pkill -f "node.*desktop-commander" 2>/dev/null
+    pkill -f "node.*DesktopCommanderMCP" 2>/dev/null
+    pkill -f "chromadb" 2>/dev/null
+    sleep 2
+
+    # First, build Desktop Commander if needed
+    if [ ! -f "$DESKTOP_COMMANDER_DIR/dist/index.js" ]; then
+        echo -e "${YELLOW}Building Desktop Commander...${NC}"
+        cd "$DESKTOP_COMMANDER_DIR"
+        npm run build
+        if [ $? -ne 0 ]; then
+            echo -e "${RED}Failed to build Desktop Commander${NC}"
+            return 1
+        fi
+    fi
+
+    # Ensure critical services are running
+    echo -e "${YELLOW}Ensuring critical services are running...${NC}"
+
+    # ChromaDB is REQUIRED - not optional
+    if ! curl -s http://localhost:8000/api/v1 > /dev/null 2>&1; then
+        echo -e "${YELLOW}Starting ChromaDB (REQUIRED)...${NC}"
+
+        # Create data directory
+        mkdir -p "$MCP_ECOSYSTEM_DIR/data/chroma"
+        cd "$MCP_ECOSYSTEM_DIR/data/chroma"
+
+        # Kill any stuck ChromaDB processes
+        pkill -f "chromadb" 2>/dev/null
+        sleep 2
+
+        # Start ChromaDB with explicit settings
+        CHROMA_SERVER_SSL_ENABLED=false \
+        CHROMA_SERVER_HOST=0.0.0.0 \
+        CHROMA_SERVER_PORT=8000 \
+        chromadb run --path . > "$MCP_ECOSYSTEM_DIR/logs/chromadb.log" 2>&1 &
+
+        # Wait for ChromaDB to be ready
+        echo -n "Waiting for ChromaDB to start..."
+        for i in {1..30}; do
+            if curl -s http://localhost:8000/api/v1 > /dev/null 2>&1; then
+                echo -e " ${GREEN}READY${NC}"
+                break
+            fi
+            echo -n "."
+            sleep 1
+        done
+
+        # Verify ChromaDB is running
+        if ! curl -s http://localhost:8000/api/v1 > /dev/null 2>&1; then
+            echo -e " ${RED}FAILED${NC}"
+            echo -e "${RED}ERROR: ChromaDB is required but failed to start!${NC}"
+            echo "Please run: ./production-fix-ecosystem.sh"
+            return 1
+        fi
+    else
+        echo -e "${GREEN}ChromaDB is already running${NC}"
+    fi
+
+    # Check OpenSearch
+    if ! curl -s http://localhost:9200 > /dev/null 2>&1; then
+        echo -e "${YELLOW}OpenSearch not running. Starting with Docker...${NC}"
+        docker start opensearch 2>/dev/null || \
+        docker run -d --name opensearch \
+            -p 9200:9200 -p 9600:9600 \
+            -e "discovery.type=single-node" \
+            -e "DISABLE_SECURITY_PLUGIN=true" \
+            opensearchproject/opensearch:latest
+    fi
+
+    # Launch the enhanced MCP ecosystem using the special script
+    echo -e "${YELLOW}Starting MCP Router ecosystem...${NC}"
+    cd "$MCP_ECOSYSTEM_DIR"
+    ./launch-claude-desktop-enhanced.sh &
+    
+    # Wait for router to be ready
+    echo -e "${YELLOW}Waiting for MCP Router to be ready...${NC}"
+    for i in {1..30}; do
+        if curl -s "$ROUTER_URL/health" | grep -q "ok"; then
+            echo -e "${GREEN}MCP Router is ready!${NC}"
+            break
+        fi
+        sleep 1
+    done
+    
+    # Register Desktop Commander with the router
+    echo -e "${YELLOW}Registering Desktop Commander with MCP Router...${NC}"
+    
+    REGISTRATION_DATA='{
+        "id": "desktop-commander",
+        "name": "Desktop Commander MCP",
+        "transport": {
+            "type": "stdio",
+            "command": "node",
+            "args": ["'$DESKTOP_COMMANDER_DIR'/dist/index.js"]
+        },
+        "capabilities": [
+            "file_operations",
+            "terminal_commands",
+            "process_management",
+            "code_editing",
+            "task_management",
+            "sequential_thinking"
+        ],
+        "description": "Integrated Desktop Commander with Task Manager and Sequential Thinking",
+        "status": "active"
+    }'
+    
+    RESPONSE=$(curl -s -X POST \
+        -H "Content-Type: application/json" \
+        -d "$REGISTRATION_DATA" \
+        "$ROUTER_URL/register")
+    
+    if echo "$RESPONSE" | grep -q "success"; then
+        echo -e "${GREEN}✅ Desktop Commander registered successfully${NC}"
+    else
+        echo -e "${RED}❌ Failed to register Desktop Commander${NC}"
+        echo "Response: $RESPONSE"
+    fi
+    
+    echo -e "${GREEN}==================================================${NC}"
+    echo -e "${GREEN}   MCP Ecosystem and Desktop Commander Started!   ${NC}"
+    echo -e "${GREEN}==================================================${NC}"
+    echo ""
+    echo "Dashboard available at: http://localhost:3001"
+    echo "MCP Router available at: http://localhost:3099"
+    echo ""
+    echo -e "${YELLOW}Please restart Claude Desktop to use the enhanced system${NC}"
+}
+
+# Function to stop everything
+stop_all() {
+    show_header
+    echo -e "${BLUE}==================================================${NC}"
+    echo -e "${BLUE}       Stopping MCP Ecosystem & Desktop Commander ${NC}"
+    echo -e "${BLUE}==================================================${NC}"
+    
+    # First, try to gracefully stop through the ecosystem script
+    echo -e "${YELLOW}Stopping MCP ecosystem...${NC}"
+    cd "$MCP_ECOSYSTEM_DIR"
+    if [ -f "./stop-all-services.sh" ]; then
+        ./stop-all-services.sh
+    else
+        echo -e "${YELLOW}stop-all-services.sh not found, using fallback...${NC}"
+    fi
+    
+    # Kill any remaining Desktop Commander processes
+    echo -e "${YELLOW}Stopping Desktop Commander processes...${NC}"
+    pkill -f "node.*DesktopCommanderMCP/dist/index.js" 2>/dev/null
+    
+    # Kill any remaining router processes
+    echo -e "${YELLOW}Stopping MCP Router processes...${NC}"
+    pkill -f "node.*simple_router.js" 2>/dev/null
+    pkill -f "node.*mcp-router.js" 2>/dev/null
+    
+    # Kill any dashboard processes
+    echo -e "${YELLOW}Stopping dashboard processes...${NC}"
+    pkill -f "node.*dashboard" 2>/dev/null
+    
+    echo -e "${GREEN}==================================================${NC}"
+    echo -e "${GREEN}   MCP Ecosystem and Desktop Commander Stopped!   ${NC}"
+    echo -e "${GREEN}==================================================${NC}"
+}
+
+# Function to show status
+show_status() {
+    show_header
+    echo -e "${BLUE}==================================================${NC}"
+    echo -e "${BLUE}                System Status                     ${NC}"
+    echo -e "${BLUE}==================================================${NC}"
+    
+    # Check Desktop Commander build
+    if [ -f "$DESKTOP_COMMANDER_DIR/dist/index.js" ]; then
+        echo -e "${GREEN}✓ Desktop Commander: BUILT${NC}"
+    else
+        echo -e "${RED}✗ Desktop Commander: NOT BUILT${NC}"
+    fi
+    
+    # Check MCP Router
+    if curl -s "$ROUTER_URL/health" | grep -q "ok"; then
+        echo -e "${GREEN}✓ MCP Router: RUNNING${NC}"
+        
+        # Check if Desktop Commander is registered
+        if curl -s "$ROUTER_URL/servers/desktop-commander" | grep -q "desktop-commander"; then
+            echo -e "${GREEN}✓ Desktop Commander: REGISTERED${NC}"
+        else
+            echo -e "${YELLOW}⚠ Desktop Commander: NOT REGISTERED${NC}"
+        fi
+    else
+        echo -e "${RED}✗ MCP Router: NOT RUNNING${NC}"
+    fi
+    
+    # Check for running processes
+    if pgrep -f "node.*DesktopCommanderMCP/dist/index.js" > /dev/null; then
+        echo -e "${GREEN}✓ Desktop Commander Process: ACTIVE${NC}"
+    else
+        echo -e "${YELLOW}⚠ Desktop Commander Process: INACTIVE${NC}"
+    fi
+    
+    echo -e "${BLUE}==================================================${NC}"
+}
+
+# Function to build Desktop Commander
+build_dc() {
+    echo -e "${YELLOW}Building Desktop Commander...${NC}"
+    cd "$DESKTOP_COMMANDER_DIR"
+    npm run build
+    if [ $? -eq 0 ]; then
+        echo -e "${GREEN}✅ Desktop Commander built successfully${NC}"
+    else
+        echo -e "${RED}❌ Failed to build Desktop Commander${NC}"
+        return 1
+    fi
+}
+
+# Main command handling
+case "$1" in
+    start)
+        start_all
+        ;;
+    stop)
+        stop_all
+        ;;
+    restart)
+        stop_all
+        sleep 2
+        start_all
+        ;;
+    status)
+        show_status
+        ;;
+    build)
+        build_dc
+        ;;
+    *)
+        show_header
+        echo "Desktop Commander Unified Control"
+        echo "================================"
+        echo ""
+        echo "Usage: dc-unified {start|stop|restart|status|build}"
+        echo ""
+        echo "Commands:"
+        echo "  start   - Start MCP ecosystem and Desktop Commander"
+        echo "  stop    - Stop everything"
+        echo "  restart - Restart everything"
+        echo "  status  - Show system status"
+        echo "  build   - Build Desktop Commander"
+        echo ""
+        echo "This script uses the special launch-claude-desktop-enhanced.sh"
+        echo "to properly start the MCP Router ecosystem."
+        echo ""
+        exit 1
+        ;;
+esac

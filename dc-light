@@ -1,0 +1,66 @@
+#!/bin/bash
+
+# Lightweight Desktop Commander runner
+# This starts only Desktop Commander without the heavy MCP ecosystem
+
+DESKTOP_COMMANDER_DIR="/Users/robertlee/GitHubProjects/DesktopCommanderMCP"
+
+# Colors
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+RED='\033[0;31m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+case "$1" in
+    start)
+        echo -e "${BLUE}Starting Desktop Commander (lightweight mode)...${NC}"
+        
+        # Kill any existing instances
+        pkill -f "node.*DesktopCommanderMCP" 2>/dev/null
+        sleep 1
+        
+        # Build if needed
+        if [ ! -f "$DESKTOP_COMMANDER_DIR/dist/index.js" ]; then
+            echo -e "${YELLOW}Building Desktop Commander...${NC}"
+            cd "$DESKTOP_COMMANDER_DIR"
+            npm run build
+        fi
+        
+        # Start Desktop Commander directly
+        cd "$DESKTOP_COMMANDER_DIR"
+        node dist/index.js &
+        
+        echo -e "${GREEN}Desktop Commander started!${NC}"
+        echo "PID: $!"
+        echo ""
+        echo "Note: This is a lightweight mode without the full MCP ecosystem."
+        ;;
+        
+    stop)
+        echo -e "${YELLOW}Stopping Desktop Commander...${NC}"
+        pkill -f "node.*DesktopCommanderMCP" 2>/dev/null
+        echo -e "${GREEN}Desktop Commander stopped!${NC}"
+        ;;
+        
+    status)
+        echo -e "${BLUE}Desktop Commander Status:${NC}"
+        if pgrep -f "node.*DesktopCommanderMCP" > /dev/null; then
+            echo -e "${GREEN}✓ Running${NC}"
+            pgrep -f "node.*DesktopCommanderMCP" | while read pid; do
+                echo "  PID: $pid"
+            done
+        else
+            echo -e "${RED}✗ Not running${NC}"
+        fi
+        ;;
+        
+    *)
+        echo "Desktop Commander Lightweight Launcher"
+        echo "Usage: $0 {start|stop|status}"
+        echo ""
+        echo "This is a minimal launcher that runs Desktop Commander"
+        echo "without the full MCP ecosystem for better performance."
+        exit 1
+        ;;
+esac
