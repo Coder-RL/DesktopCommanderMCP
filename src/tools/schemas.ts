@@ -1,7 +1,5 @@
 import { z } from "zod";
 
-console.error("Loading schemas.ts");
-
 // Config tools schemas
 export const GetConfigArgsSchema = z.object({});
 
@@ -14,14 +12,15 @@ export const SetConfigValueArgsSchema = z.object({
 export const ListProcessesArgsSchema = z.object({});
 
 // Terminal tools schemas
-export const ExecuteCommandArgsSchema = z.object({
+export const StartProcessArgsSchema = z.object({
   command: z.string(),
-  timeout_ms: z.number().optional(),
+  timeout_ms: z.number(),
   shell: z.string().optional(),
 });
 
-export const ReadOutputArgsSchema = z.object({
+export const ReadProcessOutputArgsSchema = z.object({
   pid: z.number(),
+  timeout_ms: z.number().optional(),
 });
 
 export const ForceTerminateArgsSchema = z.object({
@@ -38,6 +37,8 @@ export const KillProcessArgsSchema = z.object({
 export const ReadFileArgsSchema = z.object({
   path: z.string(),
   isUrl: z.boolean().optional().default(false),
+  offset: z.number().optional().default(0),
+  length: z.number().optional().default(1000),
 });
 
 export const ReadMultipleFilesArgsSchema = z.object({
@@ -47,6 +48,7 @@ export const ReadMultipleFilesArgsSchema = z.object({
 export const WriteFileArgsSchema = z.object({
   path: z.string(),
   content: z.string(),
+  mode: z.enum(['rewrite', 'append']).default('rewrite'),
 });
 
 export const CreateDirectoryArgsSchema = z.object({
@@ -92,81 +94,10 @@ export const EditBlockArgsSchema = z.object({
   expected_replacements: z.number().optional().default(1),
 });
 
-// Task Manager schemas
-export const RequestPlanningArgsSchema = z.object({
-  originalRequest: z.string(),
-  splitDetails: z.string().optional(),
-  tasks: z.array(z.object({
-    title: z.string(),
-    description: z.string(),
-  })),
-});
-
-export const GetNextTaskArgsSchema = z.object({
-  requestId: z.string(),
-});
-
-export const MarkTaskDoneArgsSchema = z.object({
-  requestId: z.string(),
-  taskId: z.string(),
-  completedDetails: z.string().optional(),
-});
-
-export const ApproveTaskCompletionArgsSchema = z.object({
-  requestId: z.string(),
-  taskId: z.string(),
-});
-
-export const ApproveRequestCompletionArgsSchema = z.object({
-  requestId: z.string(),
-});
-
-export const OpenTaskDetailsArgsSchema = z.object({
-  taskId: z.string(),
-});
-
-export const ListRequestsArgsSchema = z.object({});
-
-export const AddTasksToRequestArgsSchema = z.object({
-  requestId: z.string(),
-  tasks: z.array(z.object({
-    title: z.string(),
-    description: z.string(),
-  })),
-});
-
-export const UpdateTaskArgsSchema = z.object({
-  requestId: z.string(),
-  taskId: z.string(),
-  title: z.string().optional(),
-  description: z.string().optional(),
-});
-
-export const DeleteTaskArgsSchema = z.object({
-  requestId: z.string(),
-  taskId: z.string(),
-});
-
-// Sequential Thinking schemas
-export const ProcessThoughtArgsSchema = z.object({
-  thought: z.string(),
-  thought_number: z.number(),
-  total_thoughts: z.number(),
-  next_thought_needed: z.boolean(),
-  stage: z.string(),
-  tags: z.array(z.string()).optional(),
-  axioms_used: z.array(z.string()).optional(),
-  assumptions_challenged: z.array(z.string()).optional(),
-});
-
-export const GenerateSummaryArgsSchema = z.object({});
-
-export const ClearHistoryArgsSchema = z.object({});
-
-export const ExportSessionArgsSchema = z.object({
-  file_path: z.string(),
-});
-
-export const ImportSessionArgsSchema = z.object({
-  file_path: z.string(),
+// Send input to process schema
+export const InteractWithProcessArgsSchema = z.object({
+  pid: z.number(),
+  input: z.string(),
+  timeout_ms: z.number().optional(),
+  wait_for_prompt: z.boolean().optional(),
 });

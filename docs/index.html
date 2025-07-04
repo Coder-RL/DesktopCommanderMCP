@@ -920,14 +920,14 @@
                 <div class="hero-content">
                     <!-- Desktop title with typing effect -->
                     <div class="dynamic-title-container desktop-title">
-                        <h1 class="dynamic-title">Your personal<br />AI <span class="typed-text">Full Stack Engineer</span><span class="cursor">&nbsp;</span><br />without token costs</h1>
+                        <h1 class="dynamic-title">Your personal<br />AI <span class="typed-text">Full Stack Engineer</span><span class="cursor">&nbsp;</span><br />with Claude Desktop</h1>
                     </div>
                     
                     <!-- Mobile title with static text -->
                     <div class="dynamic-title-container mobile-title">
-                        <h1 class="dynamic-title">Your personal<br />AI Full Stack Engineer<br />without token costs</h1>
+                        <h1 class="dynamic-title">Your personal<br />AI Full Stack Engineer<br />with Claude Desktop</h1>
                     </div>
-                    <p style="color: #f0f0f0; font-weight: 300;">Work with code and text, run processes, and automate tasks, going far beyond other AI editors - without API token costs.</p>
+                    <p style="color: #f0f0f0; font-weight: 300;">Work with code and text, run processes, and automate tasks using Claude Desktop's subscription model - no per-token API charges.</p>
                     <div class="badges">
                         <div class="badge-row">
                             <a href="https://www.npmjs.com/package/@wonderwhy-er/desktop-commander" target="_blank">
@@ -999,8 +999,8 @@
                     <div class="benefit-icon">
                         <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
                     </div>
-                    <h3>Unlimited token access</h3>
-                    <p>Work without worrying about API token limits or per-token costs. Use Desktop Claude client to gain access to unlimited tokens. We recommend Claude Max subscription for the best experience.</p>
+                    <h3>Subscription-based usage</h3>
+                    <p>Use your Claude Desktop subscription instead of paying per API token. Daily usage limits depend on your plan tier (Pro: 45 messages/5hrs, Max: higher limits). Much more cost-effective than API pricing for regular development work.</p>
                 </div>
                 
                 <div class="benefit-card">
@@ -1008,15 +1008,15 @@
                         <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
                     </div>
                     <h3>Smart file system integration</h3>
-                    <p>Claude understands your project structure with intelligent file search and can make precise surgical changes to your codebase.</p>
+                    <p>Claude understands your project structure with intelligent file search and can make precise surgical changes to your codebase. Now supports reading from file end with negative offsets.</p>
                 </div>
                 
                 <div class="benefit-card">
                     <div class="benefit-icon">
                         <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect><rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line></svg>
                     </div>
-                    <h3>Full terminal access</h3>
-                    <p>Execute any command line operation directly through Claude's interface for seamless development, testing, and deployment workflows.</p>
+                    <h3>Interactive code execution</h3>
+                    <p>Execute Python, Node.js, R code in memory for instant data analysis. Connect to SSH, databases, and maintain persistent sessions for complex workflows.</p>
                 </div>
                 
                 <div class="benefit-card">
@@ -1083,6 +1083,25 @@
                         </ul>
                     </div>
                     <!-- <a href="segments/user-segments.html#devops-professionals" class="segment-link">Learn More</a> -->
+                </div>
+                
+                <!-- Data Analyst Segment -->
+                <div class="segment-card" id="cases-data">
+                    <div class="segment-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"></path><path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3"></path></svg>
+                    </div>
+                    <h3>AI Data Analyst</h3>
+                    <p>Analyze CSV files, databases, and datasets instantly with Python and R.</p>
+                    <div class="segment-jobs">
+                        <ul>
+                            <li>Instant CSV/Excel analysis</li>
+                            <li>Database queries with persistent connections</li>
+                            <li>Statistical analysis with R</li>
+                            <li>Data visualization</li>
+                            <li>Report generation</li>
+                        </ul>
+                    </div>
+                    <!-- <a href="segments/user-segments.html#data-professionals" class="segment-link">Learn More</a> -->
                 </div>
                 
                 <!-- Tech Writer Segment -->
@@ -1587,12 +1606,52 @@ npm run setup</pre>
                 
                 <div class="accordion-item">
                     <div class="accordion-header">
+                        <span>Is usage really "unlimited"?</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-chevron-down"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                    </div>
+                    <div class="accordion-body">
+                        <div class="accordion-body-inner">
+                            <p>Desktop Commander uses Claude Desktop's subscription model, which has usage limits that reset 2-3 times per day based on your plan tier. It's "unlimited" in that you don't pay per token like with API access, but you do have message limits. For most development work, Claude Pro's 45 messages per 5-hour window is quite generous - equivalent to 1,800+ messages per month.</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="accordion-item">
+                    <div class="accordion-header">
+                        <span>Why is the fileWriteLineLimit set to 50 by default? What is the maximum value?</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-chevron-down"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                    </div>
+                    <div class="accordion-body">
+                        <div class="accordion-body-inner">
+                            <p><strong>AIs are wasteful with tokens:</strong> Instead of doing two small edits in a file, AIs may decide to rewrite the whole thing. We're trying to force AIs to do things in smaller changes as it saves time and tokens.</p>
+                            <p><strong>Claude UX message limits:</strong> There are limits within one message and hitting "Continue" does not really work. We're trying to make AI work in smaller chunks so when you hit that limit, multiple chunks have succeeded and that work is not lost - it just needs to restart from the last chunk.</p>
+                            <p><strong>Maximum value:</strong> You can set it to thousands if you want - there's no technical restriction.</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="accordion-item">
+                    <div class="accordion-header">
                         <span>Which operating systems does it support?</span>
                         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-chevron-down"><polyline points="6 9 12 15 18 9"></polyline></svg>
                     </div>
                     <div class="accordion-body">
                         <div class="accordion-body-inner">
                             <p>Claude Desktop Commander works with Windows, macOS, and Linux. Work is ongoing to improve Windows support, WSL integration, and enhance compatibility with various Linux distributions.</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="accordion-item">
+                    <div class="accordion-header">
+                        <span>Can I use Desktop Commander in any MCP client outside of Claude?</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-chevron-down"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                    </div>
+                    <div class="accordion-body">
+                        <div class="accordion-body-inner">
+                            <p>Yes, you can install Desktop Commander on other MCP clients like Cursor, Windsurf, DeepChat, or any client with MCP support. You can use any model available for that client.</p>
+                            <p><strong>Important caveats:</strong> Desktop Commander may work unexpectedly on other clients due to differences in system prompts and conflicts with their built-in tools. It's primarily designed and tested with Claude Desktop.</p>
+                            <p>If you try other clients, test carefully with non-critical projects first and consider sharing your experience to help improve compatibility.</p>
                         </div>
                     </div>
                 </div>
@@ -1950,6 +2009,7 @@ npm run setup</pre>
                     <ul>
                         <li><a href="#cases-software">AI Software Engineer</a></li>
                         <li><a href="#cases-devops">AI DevOps</a></li>
+                        <li><a href="#cases-data">AI Data Analyst</a></li>
                         <li><a href="#cases-writer">AI Technical Writer</a></li>
                         <li><a href="#cases-uxui">AI UX/UI Designer</a></li>
                     </ul>
@@ -2029,6 +2089,8 @@ npm run setup</pre>
     <script src="js/websocket-handler.js" async></script>
     <!-- Accessibility improvements -->
     <script src="js/accessibility.js" defer></script>
+    <!-- Main JavaScript functionality -->
+    <script src="js/main.js" defer></script>
 
     <!-- JavaScript for command counter and typing effect -->
     <script>

@@ -301,9 +301,10 @@ async function testLargeFilePerformance() {
   const LARGE_FILE_CRLF = path.join(TEST_DIR, 'large_crlf.txt');
   
   try {
-    // Create large test files (but not too large to exceed 100KB limit)
-    const lines = Array(2000).fill('This is a line in a large file.\n');
-    lines[1000] = 'TARGET LINE TO FIND AND REPLACE\n';
+    // Create large test files (but not too large to exceed line limit)
+    // With line-based reading, we need to ensure we don't exceed the line limit
+    const lines = Array(800).fill('This is a line in a large file.\n'); // Reduced from 2000 to 800
+    lines[400] = 'TARGET LINE TO FIND AND REPLACE\n'; // Adjusted position
     
     // LF version
     await fs.writeFile(LARGE_FILE_LF, lines.join(''));
@@ -447,6 +448,7 @@ export default async function runTests() {
   try {
     originalConfig = await setup();
     await runEditBlockLineEndingTests();
+    return true;
   } catch (error) {
     console.error('❌ Test failed:', error.message);
     return false;
@@ -455,12 +457,13 @@ export default async function runTests() {
       await teardown(originalConfig);
     }
   }
-  return true;
 }
 
 // If this file is run directly (not imported), execute the test
 if (import.meta.url === `file://${process.argv[1]}`) {
-  runTests().catch(error => {
+  runTests().then(success => {
+    process.exit(success ? 0 : 1);
+  }).catch(error => {
     console.error('❌ Unhandled error:', error);
     process.exit(1);
   });

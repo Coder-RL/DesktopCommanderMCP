@@ -1,10 +1,13 @@
-import { readFile, writeFile } from './filesystem.js';
+import { readFile, writeFile, readFileInternal, validatePath } from './filesystem.js';
+import fs from 'fs/promises';
 import { ServerResult } from '../types.js';
 import { recursiveFuzzyIndexOf, getSimilarityRatio } from './fuzzySearch.js';
 import { capture } from '../utils/capture.js';
 import { EditBlockArgsSchema } from "./schemas.js";
 import path from 'path';
 import { detectLineEnding, normalizeLineEndings } from '../utils/lineEndingHandler.js';
+import { configManager } from '../config-manager.js';
+import { fuzzySearchLogger, type FuzzySearchLogEntry } from '../utils/fuzzySearchLogger.js';
 
 interface SearchReplace {
     search: string;
@@ -91,8 +94,23 @@ function getCharacterCodeData(expected: string, actual: string): {
 }
 
 export async function performSearchReplace(filePath: string, block: SearchReplace, expectedReplacements: number = 1): Promise<ServerResult> {
+    // Get file extension for telemetry using path module
+    const fileExtension = path.extname(filePath).toLowerCase();
+    
+    // Capture file extension and string sizes in telemetry without capturing the file path
+    capture('server_edit_block', {
+        fileExtension: fileExtension,
+        oldStringLength: block.search.length,
+        oldStringLines: block.search.split('\n').length,
+        newStringLength: block.replace.length,
+        newStringLines: block.replace.split('\n').length,
+        expectedReplacements: expectedReplacements
+    });
     // Check for empty search string to prevent infinite loops
     if (block.search === "") {
+    
+        // Capture file extension in telemetry without capturing the file path
+        capture('server_edit_block_empty_search', {fileExtension: fileExtension, expectedReplacements});
         return {
             content: [{ 
                 type: "text", 
@@ -101,19 +119,20 @@ export async function performSearchReplace(filePath: string, block: SearchReplac
         };
     }
     
-    // Get file extension for telemetry using path module
-    const fileExtension = path.extname(filePath).toLowerCase();
-    
-    // Capture file extension in telemetry without capturing the file path
-    capture('server_edit_block', {fileExtension: fileExtension});
 
-    // Read file as plain string
-    const {content} = await readFile(filePath);
+    // Read file directly to preserve line endings - critical for edit operations
+    const validPath = await validatePath(filePath);
+    const content = await readFileInternal(validPath, 0, Number.MAX_SAFE_INTEGER);
     
     // Make sure content is a string
     if (typeof content !== 'string') {
+        capture('server_edit_block_content_not_string', {fileExtension: fileExtension, expectedReplacements});
         throw new Error('Wrong content for file ' + filePath);
     }
+    
+    // Get the line limit from configuration
+    const config = await configManager.getConfig();
+    const MAX_LINES = config.fileWriteLineLimit ?? 50; // Default to 50 if not set
     
     // Detect file's line ending style
     const fileLineEnding = detectLineEnding(content);
@@ -148,18 +167,32 @@ export async function performSearchReplace(filePath: string, block: SearchReplac
             newContent = newContent.split(normalizedSearch).join(normalizeLineEndings(block.replace, fileLineEnding));
         }
         
-        await writeFile(filePath, newContent);
+        // Check if search or replace text has too many lines
+        const searchLines = block.search.split('\n').length;
+        const replaceLines = block.replace.split('\n').length;
+        const maxLines = Math.max(searchLines, replaceLines);
+        let warningMessage = "";
         
+        if (maxLines > MAX_LINES) {
+            const problemText = searchLines > replaceLines ? 'search text' : 'replacement text';
+            warningMessage = `\n\nWARNING: The ${problemText} has ${maxLines} lines (maximum: ${MAX_LINES}).
+            
+RECOMMENDATION: For large search/replace operations, consider breaking them into smaller chunks with fewer lines.`;
+        }
+        
+        await writeFile(filePath, newContent);
+        capture('server_edit_block_exact_success', {fileExtension: fileExtension, expectedReplacements, hasWarning: warningMessage !== ""});
         return {
             content: [{ 
                 type: "text", 
-                text: `Successfully applied ${expectedReplacements} edit${expectedReplacements > 1 ? 's' : ''} to ${filePath}` 
+                text: `Successfully applied ${expectedReplacements} edit${expectedReplacements > 1 ? 's' : ''} to ${filePath}${warningMessage}` 
             }],
         };
     }
     
     // If exact match found but count doesn't match expected, inform the user
     if (count > 0 && count !== expectedReplacements) {
+        capture('server_edit_block_unexpected_count', {fileExtension: fileExtension, expectedReplacements, expectedReplacementsCount: count});
         return {
             content: [{ 
                 type: "text", 
@@ -189,6 +222,29 @@ export async function performSearchReplace(filePath: string, block: SearchReplac
         // Count character codes in diff
         const characterCodeData = getCharacterCodeData(block.search, fuzzyResult.value);
         
+        // Create comprehensive log entry
+        const logEntry: FuzzySearchLogEntry = {
+            timestamp: new Date(),
+            searchText: block.search,
+            foundText: fuzzyResult.value,
+            similarity: similarity,
+            executionTime: executionTime,
+            exactMatchCount: count,
+            expectedReplacements: expectedReplacements,
+            fuzzyThreshold: FUZZY_THRESHOLD,
+            belowThreshold: similarity < FUZZY_THRESHOLD,
+            diff: diff,
+            searchLength: block.search.length,
+            foundLength: fuzzyResult.value.length,
+            fileExtension: fileExtension,
+            characterCodes: characterCodeData.report,
+            uniqueCharacterCount: characterCodeData.uniqueCount,
+            diffLength: characterCodeData.diffLength
+        };
+        
+        // Log to file
+        await fuzzySearchLogger.log(logEntry);
+        
         // Combine all fuzzy search data for single capture
         const fuzzySearchData = {
             similarity: similarity,
@@ -214,8 +270,10 @@ export async function performSearchReplace(filePath: string, block: SearchReplac
                     type: "text", 
                     text: `Exact match not found, but found a similar text with ${Math.round(similarity * 100)}% similarity (found in ${executionTime.toFixed(2)}ms):\n\n` +
                           `Differences:\n${diff}\n\n` +
-                          `To replace this text, use the exact text found in the file.`
-                }],
+                          `To replace this text, use the exact text found in the file.\n\n` +
+                          `Log entry saved for analysis. Use the following command to check the log:\n` +
+                          `Check log: ${await fuzzySearchLogger.getLogPath()}`
+                }],// TODO
             };
         } else {
             // If the fuzzy match isn't close enough
@@ -230,7 +288,9 @@ export async function performSearchReplace(filePath: string, block: SearchReplac
                     type: "text", 
                     text: `Search content not found in ${filePath}. The closest match was "${fuzzyResult.value}" ` +
                           `with only ${Math.round(similarity * 100)}% similarity, which is below the ${Math.round(FUZZY_THRESHOLD * 100)}% threshold. ` +
-                          `(Fuzzy search completed in ${executionTime.toFixed(2)}ms)`
+                          `(Fuzzy search completed in ${executionTime.toFixed(2)}ms)\n\n` +
+                          `Log entry saved for analysis. Use the following command to check the log:\n` +
+                          `Check log: ${await fuzzySearchLogger.getLogPath()}`
                 }],
             };
         }
